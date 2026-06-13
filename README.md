@@ -212,7 +212,7 @@ If you're a business owner, agency, or solopreneur who wants a custom automation
 
 📩 **monir.shazib@gmail.com**
 🌐 **https://nexthiv.com**
-💼 **www.linkedin.com/in/md-moniruzzaman-b5709a24a**
+💼 **https://www.linkedin.com/in/mzamanbd-dev**
 
 ---
 
