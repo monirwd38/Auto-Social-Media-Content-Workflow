@@ -1,0 +1,295 @@
+{
+  "name": "Social Media Content Scheduling — Personal Branding + Client Acquisition",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 9 * * 1" },
+            { "field": "cronExpression", "expression": "0 9 * * 4" }
+          ]
+        },
+        "timezone": "Asia/Dhaka"
+      },
+      "name": "Schedule Trigger (Mon & Thu 9AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "api_key", "value": "={{ $env.TAVILY_API_KEY }}" },
+            { "name": "query", "value": "latest automation trends business developer productivity 2026" },
+            { "name": "search_depth", "value": "advanced" },
+            { "name": "max_results", "value": 5 }
+          ]
+        }
+      },
+      "name": "Research Trending Topics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a personal branding and client acquisition content assistant for a Full-Stack Developer passionate about automation. Generate platform-optimized social media content for LinkedIn, Twitter/X, Instagram, and Facebook. Always return ONLY a valid JSON object with keys: topic, target_audience, content_type, linkedin_post, twitter_thread, instagram_caption, instagram_slides, facebook_post, image_prompt, video_script. No extra text, no markdown backticks."
+            },
+            {
+              "role": "user",
+              "content": "=Research data: {{ JSON.stringify($json.results) }}\n\nToday: {{ $now.format('dddd, MMMM D, YYYY') }}\n\nContent rotation this week — use one of: educational (40%), inspirational (30%), case_study (20%), soft_cta (10%).\n\nGenerate a complete social media content package following these rules:\n- LinkedIn: 150-250 words, storytelling or tips, hook + problem + solution + CTA\n- Twitter: 5-7 tweet thread, punchy, max 280 chars each\n- Instagram: 80-120 word caption, 5-7 carousel slide titles, 8-10 hashtags\n- Facebook: 80-120 words, conversational, end with engagement question\n- image_prompt: detailed DALL-E 3 prompt for a clean minimal developer-themed graphic\n- video_script: 30-45 second reel script\n\nTarget ALL types of people — developers, business owners, solopreneurs, non-tech people.\nWrite in plain language. Avoid heavy jargon.\n\nReturn ONLY valid JSON."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 2000
+        }
+      },
+      "name": "AI Agent — Generate All Posts",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "dall-e-3" },
+            { "name": "prompt", "value": "={{ JSON.parse($json.message.content).image_prompt }}" },
+            { "name": "n", "value": 1 },
+            { "name": "size", "value": "1024x1024" }
+          ]
+        }
+      },
+      "name": "Generate Image (DALL-E 3)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=━━━━━━━━━━━━━━━━━━━━━━\n📅 New Post Ready — {{ $now.format('ddd, MMM D, YYYY') }}\n━━━━━━━━━━━━━━━━━━━━━━\n📌 Topic: {{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).topic }}\n🎯 Audience: {{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).target_audience }}\n📊 Type: {{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).content_type }}\n\n📝 LINKEDIN:\n{{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).linkedin_post }}\n\n🐦 TWITTER THREAD:\n{{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).twitter_thread }}\n\n📸 INSTAGRAM:\n{{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).instagram_caption }}\n\n💬 FACEBOOK:\n{{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).facebook_post }}\n\n🖼️ Image: {{ $json.data[0].url }}\n\n━━━━━━━━━━━━━━━━━━━━━━\nReply:\n✅ approve\n✏️ edit: [your changes]\n❌ reject\n━━━━━━━━━━━━━━━━━━━━━━",
+        "additionalFields": {}
+      },
+      "name": "Send Approval via Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "options": {
+          "webhookSuffix": "approval"
+        }
+      },
+      "name": "Wait for Your Reply",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.message.text.toLowerCase() }}",
+              "operation": "contains",
+              "value2": "approve"
+            }
+          ]
+        }
+      },
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.bufferapp.com/1/updates/create.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "profile_ids[]", "value": "={{ $env.BUFFER_LINKEDIN_ID }}" },
+            { "name": "text", "value": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).linkedin_post }}" },
+            { "name": "media[photo]", "value": "={{ $node['Generate Image (DALL-E 3)'].json.data[0].url }}" }
+          ]
+        }
+      },
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1780, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.bufferapp.com/1/updates/create.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "profile_ids[]", "value": "={{ $env.BUFFER_TWITTER_ID }}" },
+            { "name": "text", "value": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).twitter_thread }}" },
+            { "name": "media[photo]", "value": "={{ $node['Generate Image (DALL-E 3)'].json.data[0].url }}" }
+          ]
+        }
+      },
+      "name": "Post to Twitter/X",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1780, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.bufferapp.com/1/updates/create.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "profile_ids[]", "value": "={{ $env.BUFFER_INSTAGRAM_ID }}" },
+            { "name": "text", "value": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).instagram_caption }}" },
+            { "name": "media[photo]", "value": "={{ $node['Generate Image (DALL-E 3)'].json.data[0].url }}" }
+          ]
+        }
+      },
+      "name": "Post to Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1780, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.bufferapp.com/1/updates/create.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "profile_ids[]", "value": "={{ $env.BUFFER_FACEBOOK_ID }}" },
+            { "name": "text", "value": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).facebook_post }}" },
+            { "name": "media[photo]", "value": "={{ $node['Generate Image (DALL-E 3)'].json.data[0].url }}" }
+          ]
+        }
+      },
+      "name": "Post to Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1780, 620]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "sheetName": { "value": "Content Log" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.format('YYYY-MM-DD') }}",
+            "Topic": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).topic }}",
+            "Content Type": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).content_type }}",
+            "Target Audience": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).target_audience }}",
+            "LinkedIn Post": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).linkedin_post }}",
+            "Twitter Post": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).twitter_thread }}",
+            "Instagram Post": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).instagram_caption }}",
+            "Facebook Post": "={{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).facebook_post }}",
+            "Image URL": "={{ $node['Generate Image (DALL-E 3)'].json.data[0].url }}",
+            "Status": "published"
+          }
+        }
+      },
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=✅ All posts published successfully!\n📅 {{ $now.format('ddd, MMM D, YYYY') }}\n📌 {{ JSON.parse($node['AI Agent — Generate All Posts'].json.message.content).topic }}\n🚀 Live on LinkedIn, Twitter/X, Instagram & Facebook!",
+        "additionalFields": {}
+      },
+      "name": "Confirm Published",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "❌ Post rejected or edit requested.\n✏️ Your reply: {{ $json.body.message.text }}\n\n🔄 Please re-run the workflow or adjust the AI prompt.",
+        "additionalFields": {}
+      },
+      "name": "Notify Rejected",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1780, 800]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (Mon & Thu 9AM)": {
+      "main": [[{ "node": "Research Trending Topics", "type": "main", "index": 0 }]]
+    },
+    "Research Trending Topics": {
+      "main": [[{ "node": "AI Agent — Generate All Posts", "type": "main", "index": 0 }]]
+    },
+    "AI Agent — Generate All Posts": {
+      "main": [[{ "node": "Generate Image (DALL-E 3)", "type": "main", "index": 0 }]]
+    },
+    "Generate Image (DALL-E 3)": {
+      "main": [[{ "node": "Send Approval via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Send Approval via Telegram": {
+      "main": [[{ "node": "Wait for Your Reply", "type": "main", "index": 0 }]]
+    },
+    "Wait for Your Reply": {
+      "main": [[{ "node": "Approved?", "type": "main", "index": 0 }]]
+    },
+    "Approved?": {
+      "main": [
+        [
+          { "node": "Post to LinkedIn", "type": "main", "index": 0 },
+          { "node": "Post to Twitter/X", "type": "main", "index": 0 },
+          { "node": "Post to Instagram", "type": "main", "index": 0 },
+          { "node": "Post to Facebook", "type": "main", "index": 0 }
+        ],
+        [{ "node": "Notify Rejected", "type": "main", "index": 0 }]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [[{ "node": "Log to Google Sheets", "type": "main", "index": 0 }]]
+    },
+    "Log to Google Sheets": {
+      "main": [[{ "node": "Confirm Published", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dhaka"
+  },
+  "tags": ["automation", "social-media", "personal-branding", "ai", "n8n"]
+}
