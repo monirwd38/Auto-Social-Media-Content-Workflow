@@ -82,7 +82,7 @@ GOOGLE_SHEET_ID=your_google_sheet_id
 
 ### 1. Clone this repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/n8n-social-automation.git
+git clone https://github.com/monirwd38/Auto-Social-Media-Content-Workflow.git
 cd n8n-social-automation
 ```
 
