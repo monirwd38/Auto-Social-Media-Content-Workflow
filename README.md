@@ -1,4 +1,4 @@
-# 🤖 Automated Social Media Content Scheduling with n8n + AI
+# 🤖 NextHive — Automated Social Media Content Scheduling with n8n + AI
 
 > A fully automated personal branding & client acquisition workflow built with n8n, GPT-4o, DALL·E 3, and Telegram — runs twice a week with zero manual trigger.
 
